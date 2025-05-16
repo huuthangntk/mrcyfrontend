@@ -181,11 +181,15 @@ export const authenticatedFetch = async (
       (error as any).status = response.status;
       (error as any).statusText = response.statusText;
       (error as any).responseData = errorData;
+      // Add code property if available
+      if (errorData.code) {
+        (error as any).code = errorData.code;
+      }
       
       // Import toast dynamically to avoid circular dependencies
       const { toast } = await import("@/components/ui/use-toast");
       
-      // Show toast notification
+      // Show toast notification using error code if available
       toast({
         title: "Error",
         description: error.message,

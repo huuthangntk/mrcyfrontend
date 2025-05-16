@@ -77,6 +77,10 @@ const handleApiError = (error: any): string => {
     errorCode = error.response.data.code;
   } else if (error instanceof Error) {
     errorMessage = error.message || errorMessage;
+    // For errors thrown manually that might have a code
+    if ((error as ApiError).code) {
+      errorCode = (error as ApiError).code;
+    }
   }
   
   // Show toast notification with error message
@@ -103,7 +107,7 @@ export const authService = {
       return response.data;
     } catch (error) {
       handleApiError(error);
-      return null; // Return null instead of throwing
+      return null;
     }
   },
   
@@ -125,7 +129,7 @@ export const authService = {
       return response.data;
     } catch (error) {
       handleApiError(error);
-      return null;
+      throw error; // Re-throw for component-level error handling
     }
   },
   
@@ -143,7 +147,7 @@ export const authService = {
       return response.data;
     } catch (error) {
       handleApiError(error);
-      return null;
+      throw error; // Re-throw for component-level error handling
     }
   },
   
@@ -195,7 +199,7 @@ export const authService = {
       return response.data;
     } catch (error) {
       handleApiError(error);
-      return null;
+      throw error; // Re-throw for component-level error handling
     }
   },
   
@@ -237,7 +241,69 @@ export const authService = {
       return response.data;
     } catch (error) {
       handleApiError(error);
-      return null;
+      throw error; // Re-throw for component-level error handling
+    }
+  },
+  
+  // Verify two-factor authentication during login
+  async verifyTwoFactorAuth(data: { email: string; password: string; code: string; userId?: number }) {
+    try {
+      // Extract userId from data if available, otherwise make initial login call
+      let userId = data.userId;
+      
+      if (!userId) {
+        // First attempt login to get userId
+        const loginResponse = await this.login({ email: data.email, password: data.password });
+        userId = loginResponse.userId;
+      }
+      
+      // Call the correct endpoint according to the API specification
+      const response = await api.post('/api/auth/verify-login-app', {
+        userId,
+        code: data.code
+      });
+      
+      // If verification is successful, store the tokens
+      if (response.data.accessToken) {
+        localStorage.setItem('accessToken', response.data.accessToken);
+        localStorage.setItem('refreshToken', response.data.refreshToken);
+      }
+      
+      return response.data;
+    } catch (error) {
+      handleApiError(error);
+      throw error; // Re-throw for component-level error handling
+    }
+  },
+  
+  // Verify login email verification code
+  async verifyLoginEmailCode(data: { email: string; password: string; code: string; userId?: number }) {
+    try {
+      // Extract userId from data if available, otherwise make initial login call
+      let userId = data.userId;
+      
+      if (!userId) {
+        // First attempt login to get userId
+        const loginResponse = await this.login({ email: data.email, password: data.password });
+        userId = loginResponse.userId;
+      }
+      
+      // Call the correct endpoint according to the API specification
+      const response = await api.post('/api/auth/verify-login-email', {
+        userId,
+        code: data.code
+      });
+      
+      // If verification is successful, store the tokens
+      if (response.data.accessToken) {
+        localStorage.setItem('accessToken', response.data.accessToken);
+        localStorage.setItem('refreshToken', response.data.refreshToken);
+      }
+      
+      return response.data;
+    } catch (error) {
+      handleApiError(error);
+      throw error; // Re-throw for component-level error handling
     }
   },
   

@@ -1,23 +1,13 @@
 "use client"
 
 import * as React from "react"
-import {
-  Toast,
-  ToastClose,
-  ToastDescription,
-  ToastProvider,
-  ToastTitle,
-  ToastViewport,
-} from "@/components/ui/toast"
-import { useToast as useToastHook } from "@/components/ui/use-toast-hook"
-
 import type {
   ToastActionElement,
   ToastProps,
 } from "@/components/ui/toast"
 
 const TOAST_LIMIT = 5
-const TOAST_REMOVE_DELAY = 1000000
+const TOAST_REMOVE_DELAY = 5000
 
 type ToasterToast = ToastProps & {
   id: string
@@ -88,6 +78,11 @@ const reducer = (state: State, action: Action): State => {
       // ! Side effects ! - This could be extracted into a dismissToast() action,
       // but I'll keep it here for simplicity
       if (toastId) {
+        if (toastTimeouts.has(toastId)) {
+          clearTimeout(toastTimeouts.get(toastId))
+          toastTimeouts.delete(toastId)
+        }
+
         toastTimeouts.set(
           toastId,
           setTimeout(() => {
@@ -161,6 +156,15 @@ function toast({ ...props }: Toast) {
     },
   })
 
+  // Set a timeout to automatically dismiss the toast after a certain delay
+  if (props.duration !== Infinity) {
+    const timeout = setTimeout(() => {
+      dispatch({ type: actionTypes.DISMISS_TOAST, toastId: id })
+    }, props.duration || TOAST_REMOVE_DELAY)
+
+    toastTimeouts.set(id, timeout)
+  }
+
   return {
     id: id,
     dismiss,
@@ -188,28 +192,4 @@ function useToast() {
   }
 }
 
-export function Toaster() {
-  const { toasts } = useToast()
-
-  return (
-    <ToastProvider>
-      {toasts.map(function ({ id, title, description, action, ...props }) {
-        return (
-          <Toast key={id} {...props}>
-            <div className="grid gap-1">
-              {title && <ToastTitle>{title}</ToastTitle>}
-              {description && (
-                <ToastDescription>{description}</ToastDescription>
-              )}
-            </div>
-            {action}
-            <ToastClose />
-          </Toast>
-        )
-      })}
-      <ToastViewport />
-    </ToastProvider>
-  )
-}
-
-export { useToast, toast, useToastHook } 
+export { useToast, toast } 

@@ -40,6 +40,16 @@ const en: Translation = {
     passwordTooWeak: 'Password is too weak',
     termsAndConditions: 'I accept the Terms and Conditions',
     
+    // Common verification elements
+    error: 'Error',
+    verify: 'Verify',
+    verifying: 'Verifying...',
+    enterAllDigits: 'Please enter all 6 digits of the verification code',
+    resendCodeIn: 'Resend code in',
+    seconds: 'seconds',
+    resendCode: 'Resend Code',
+    sending: 'Sending...',
+    
     // Error codes
     errorCodes: {
       DUPLICATED_EMAIL_OR_USERNAME: 'User with this email or username already exists',
@@ -63,19 +73,37 @@ const en: Translation = {
       special: 'One special character'
     },
     
-    // Email Verification Modal
+    // Email Verification Modal (Registration)
     verifyEmailTitle: 'Verify Your Email',
     verifyEmailDescription: 'We\'ve sent a 6-digit verification code to',
     enterCodeBelow: 'Enter the code below to verify your email',
-    resendCodeIn: 'Resend code in',
-    seconds: 'seconds',
-    resendCode: 'Resend Code',
-    sending: 'Sending...',
     verifyEmail: 'Verify Email',
-    verifying: 'Verifying...',
     emailVerified: 'Your email has been successfully verified.',
     invalidVerificationCode: 'Invalid verification code. Please try again.',
-    enterAllDigits: 'Please enter all 6 digits of the verification code',
+    
+    // Two-Factor Authentication Modal
+    twoFactorAuth: {
+      title: 'Two-Factor Authentication',
+      description: 'Enter the 6-digit code from your authenticator app',
+      enterCode: 'Enter the code below to continue',
+      invalidCode: 'Invalid authentication code. Please try again.',
+      success: 'Authentication Successful',
+      successMessage: 'Your identity has been verified successfully.',
+      failedTitle: 'Authentication Failed'
+    },
+    
+    // Login Email Verification Modal
+    loginVerification: {
+      title: 'Verify Your Login',
+      description: 'We\'ve sent a 6-digit verification code to',
+      enterCode: 'Enter the code below to continue login',
+      codeSent: 'Verification code sent to',
+      invalidCode: 'Invalid verification code. Please try again.',
+      success: 'Verification Successful',
+      successMessage: 'Your identity has been verified successfully.',
+      failedTitle: 'Verification Failed',
+      failed: 'Verification failed. Please try again.'
+    },
     
     // Email Verification Page
     verification: {
@@ -96,7 +124,6 @@ const en: Translation = {
     twoFactorDescription: 'Enter the 6-digit code from your authenticator app',
     codeRefreshesIn: 'Code refreshes in',
     getNewCode: 'Please get a new code from your app',
-    verify: 'Verify',
     
     // Forgot Password Modal
     resetPasswordTitle: 'Reset Your Password',

@@ -16,6 +16,7 @@ import { Eye, EyeOff, Check, X, Loader2, KeyRound } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { authService } from '@/services/authService';
 import { toast } from '@/components/ui/use-toast';
+import { useTranslation } from "@/lib/i18n/TranslationProvider";
 
 interface ResetPasswordModalProps {
   isOpen: boolean;
@@ -30,6 +31,7 @@ export const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({
   onSuccess,
   token
 }) => {
+  const { t } = useTranslation();
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -103,8 +105,8 @@ export const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({
       });
       
       toast({
-        title: "Password reset successful",
-        description: "Your password has been updated. You can now log in with your new password.",
+        title: t("auth.passwordReset.successTitle"),
+        description: t("auth.passwordReset.successDescription"),
         variant: "default"
       });
       
@@ -114,9 +116,12 @@ export const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({
       }, 3000);
     } catch (error: any) {
       console.error('Password reset error:', error);
+      
+      const errorCode = error.response?.data?.code;
+      
       toast({
-        title: "Password reset failed",
-        description: error.message || "An error occurred while resetting your password. Please try again.",
+        title: t("auth.passwordReset.failedTitle"),
+        description: errorCode ? t(`auth.${errorCode}`) : (error.message || t("auth.passwordReset.genericError")),
         variant: "destructive"
       });
     } finally {

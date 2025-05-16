@@ -47,10 +47,15 @@ export default function VerifyEmailTokenPage({ params }: VerifyEmailTokenPagePro
         });
       } catch (error: any) {
         console.error('Email verification error:', error);
-        setError(error.message || t('verification.failed'));
+        const errorCode = error.response?.data?.code;
+        
+        // Set the error message for display
+        setError(errorCode ? t(`auth.${errorCode}`) : (error.message || t('verification.failed')));
+        
+        // Show toast notification
         toast({
           title: t('verification.failedTitle'),
-          description: error.message || t('verification.failed'),
+          description: errorCode ? t(`auth.${errorCode}`) : (error.message || t('verification.failed')),
           variant: 'destructive',
         });
       } finally {

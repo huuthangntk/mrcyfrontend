@@ -7,8 +7,7 @@ import {
   DialogHeader, 
   DialogTitle, 
   DialogDescription,
-  DialogFooter,
-  DialogClose
+  DialogFooter
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,25 +17,22 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { toast } from '@/components/ui/use-toast';
 import { useTranslation } from '@/lib/i18n/TranslationProvider';
 
-interface EmailVerificationModalProps {
+interface LoginEmailVerificationModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (data: any) => void;
   email: string;
-  userData?: {
-    username: string;
-    email: string;
-    fullName: string;
-    password: string;
-  };
+  password: string;
+  userId?: number;
 }
 
-export const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({ 
+export const LoginEmailVerificationModal: React.FC<LoginEmailVerificationModalProps> = ({ 
   isOpen,
   onClose,
   onSuccess,
   email,
-  userData
+  password,
+  userId
 }) => {
   const { t } = useTranslation();
   const [verificationCode, setVerificationCode] = useState(['', '', '', '', '', '']);
@@ -205,24 +201,26 @@ export const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
     setIsLoading(true);
     
     try {
-      await authService.verifyEmailCode({
+      const response = await authService.verifyLoginEmailCode({
         email,
-        code
+        password,
+        code,
+        userId
       });
       
       toast({
-        title: t('auth.verifyEmailTitle'),
-        description: t('auth.emailVerified'),
+        title: t('auth.loginVerification.success'),
+        description: t('auth.loginVerification.successMessage'),
         variant: "default"
       });
       
-      // Call onSuccess to handle successful verification
-      onSuccess();
+      // Call onSuccess to handle successful verification and pass tokens
+      onSuccess(response);
     } catch (error: any) {
-      console.error('Verification error:', error);
+      console.error('Login verification error:', error);
       
       // Extract error message and code
-      let errorMessage = t('auth.invalidVerificationCode');
+      let errorMessage = t('auth.loginVerification.invalidCode');
       let errorCode = null;
       
       if (error.response?.data) {
@@ -237,7 +235,7 @@ export const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
       
       // Also show a toast for better visibility
       toast({
-        title: t('auth.verification.failedTitle'),
+        title: t('auth.loginVerification.failedTitle'),
         description: errorCode ? t(`auth.${errorCode}`) : errorMessage,
         variant: "destructive"
       });
@@ -245,7 +243,7 @@ export const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
       setIsLoading(false);
     }
   };
-  
+
   // Handle code resend
   const handleResendCode = async () => {
     // Check if we need to enforce rate limiting
@@ -258,26 +256,24 @@ export const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
       }
     }
     
-    if (!userData) {
-      setError(t('auth.verification.failed'));
-      return;
-    }
-    
     setResendLoading(true);
     setCanResend(false);
     setTimer(120); // Set timer to 2 minutes (120 seconds)
     setError(null);
     
     try {
-      // Reuse the register function instead of a separate resend endpoint
-      await authService.register(userData);
+      // Call login again to trigger a new email verification code
+      await authService.login({
+        email,
+        password
+      });
       
       // Update the last send time
       setLastSendTime(Date.now());
       
       toast({
         title: t('auth.resendCode'),
-        description: `${t('auth.verifyEmailDescription')} ${email}`,
+        description: `${t('auth.loginVerification.codeSent')} ${email}`,
         variant: "default"
       });
       
@@ -290,7 +286,7 @@ export const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
       console.error('Resend error:', error);
       
       // Extract error message and code
-      let errorMessage = t('auth.verification.failed');
+      let errorMessage = t('auth.loginVerification.failed');
       let errorCode = null;
       
       if (error.response?.data) {
@@ -305,7 +301,7 @@ export const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
       
       // Also show a toast for better visibility
       toast({
-        title: t('auth.verification.failedTitle'),
+        title: t('auth.loginVerification.failedTitle'),
         description: errorCode ? t(`auth.${errorCode}`) : errorMessage,
         variant: "destructive"
       });
@@ -339,14 +335,14 @@ export const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
     }}>
       <DialogContent className="sm:max-w-md" onInteractOutside={(e) => e.preventDefault()}>
         <DialogHeader>
-          <DialogTitle className="text-2xl text-center">Verify Your Email</DialogTitle>
+          <DialogTitle className="text-2xl text-center">{t('auth.loginVerification.title')}</DialogTitle>
           <DialogDescription className="text-center">
             <div className="flex flex-col items-center mt-2">
               <div className="bg-primary/10 p-3 rounded-full mb-4">
                 <Mail className="h-8 w-8 text-primary" />
               </div>
-              <p>We've sent a 6-digit verification code to <br /><span className="font-medium">{email}</span></p>
-              <p className="text-sm mt-2">Enter the code below to verify your email</p>
+              <p>{t('auth.loginVerification.description')} <br /><span className="font-medium">{email}</span></p>
+              <p className="text-sm mt-2">{t('auth.loginVerification.enterCode')}</p>
             </div>
           </DialogDescription>
         </DialogHeader>
@@ -354,7 +350,7 @@ export const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
         {error && (
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Error</AlertTitle>
+            <AlertTitle>{t('auth.error')}</AlertTitle>
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
@@ -388,20 +384,20 @@ export const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
                   className="p-0 h-auto text-primary"
                   onClick={handleResendCode}
                   type="button"
-                  disabled={resendLoading || !userData}
+                  disabled={resendLoading}
                 >
                   {resendLoading ? (
                     <>
                       <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                      Sending...
+                      {t('auth.sending')}
                     </>
                   ) : (
-                    "Resend Code"
+                    t('auth.resendCode')
                   )}
                 </Button>
               ) : (
                 <>
-                  Resend code in <span className="font-medium">{timer}</span> seconds
+                  {t('auth.resendCodeIn')} <span className="font-medium">{timer}</span> {t('auth.seconds')}
                 </>
               )}
             </p>
@@ -412,10 +408,10 @@ export const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Verifying...
+                  {t('auth.verifying')}
                 </>
               ) : (
-                "Verify Email"
+                t('auth.verify')
               )}
             </Button>
           </DialogFooter>
@@ -425,4 +421,4 @@ export const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
   );
 };
 
-export default EmailVerificationModal;
+export default LoginEmailVerificationModal; 

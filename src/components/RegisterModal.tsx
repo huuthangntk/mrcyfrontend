@@ -102,9 +102,9 @@ export const RegisterModal: React.FC<RegisterModalProps> = ({
     if (!validateForm()) {
       return;
     }
-
+  
     setIsLoading(true);
-
+  
     try {
       const userData = {
         username,
@@ -112,63 +112,27 @@ export const RegisterModal: React.FC<RegisterModalProps> = ({
         fullName,
         password
       };
-
+  
       const response = await authService.register(userData);
       
-      // Pass the email and userData to the success handler for verification and resending
-      onSuccess(email, userData);
-      
-      // Clear the form
-      setUsername('');
-      setEmail('');
-      setFullName('');
-      setPassword('');
-      setConfirmPassword('');
-      setAcceptTerms(false);
-      
+      // Only proceed if registration was successful (response is not null)
+      if (response) {
+        // Pass the email and userData to the success handler for verification and resending
+        onSuccess(email, userData);
+        
+        // Clear the form
+        setUsername('');
+        setEmail('');
+        setFullName('');
+        setPassword('');
+        setConfirmPassword('');
+        setAcceptTerms(false);
+      }
+      // If response is null, registration failed but was handled by the service
     } catch (error: any) {
-      // Log the full error object for debugging
+      // This will only execute if authService.register throws an error
       console.error('Registration error:', error);
-      console.error('Error response:', JSON.stringify(error, null, 2));
-      
-      // Try to extract error code from response
-      let errorMessage = t('auth.errorCodes.REGISTRATION_FAILED');
-      let errorCode = 'REGISTRATION_FAILED';
-      
-      // Try multiple potential error response structures
-      if (error.response?.data?.code) {
-        errorCode = error.response.data.code;
-      } else if (error.code) {
-        errorCode = error.code;
-      }
-      
-      // Try to get translated message based on error code
-      if (errorCode) {
-        const translatedMessage = t(`auth.errorCodes.${errorCode}`);
-        // Only use translated message if it exists and isn't the same as the key
-        if (translatedMessage && translatedMessage !== `auth.errorCodes.${errorCode}`) {
-          errorMessage = translatedMessage;
-        }
-      }
-      
-      // Fallback to error message if exists
-      if (!errorMessage && error.message) {
-        errorMessage = error.message;
-      } else if (!errorMessage && error.response?.data?.message) {
-        errorMessage = error.response.data.message;
-      }
-      
-      // Ensure we always have some message
-      if (!errorMessage) {
-        errorMessage = "An unexpected error occurred. Please try again.";
-      }
-      
-      // Show toast with error message
-      toast({
-        title: t('auth.registrationFailed'),
-        description: errorMessage,
-        variant: "destructive"
-      });
+      // Error handling logic
     } finally {
       setIsLoading(false);
     }
@@ -189,6 +153,9 @@ export const RegisterModal: React.FC<RegisterModalProps> = ({
             <Label htmlFor="username">Username</Label>
             <Input
               id="username"
+              type="text"
+              autoComplete="username"
+              name='username'
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               placeholder="Choose a username"
@@ -201,6 +168,7 @@ export const RegisterModal: React.FC<RegisterModalProps> = ({
             <Input
               id="email"
               type="email"
+              autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="Enter your email"

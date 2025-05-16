@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Loader2, Mail } from 'lucide-react';
 import { authService } from '@/services/authService';
 import { toast } from '@/components/ui/use-toast';
+import { useTranslation } from '@/lib/i18n/TranslationProvider';
 
 interface ForgotPasswordModalProps {
   isOpen: boolean;
@@ -26,6 +27,7 @@ const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
   onClose,
   onSuccess
 }) => {
+  const { t } = useTranslation();
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -39,8 +41,8 @@ const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
       
       setIsSubmitted(true);
       toast({
-        title: "Reset link sent",
-        description: "If the email is registered, you will receive a password reset link.",
+        title: t("auth.resetPassword.linkSentTitle"),
+        description: t("auth.resetPassword.linkSentDescription"),
         variant: "default"
       });
       
@@ -49,11 +51,12 @@ const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
       }, 3000);
     } catch (error: any) {
       console.error('Forgot password error:', error);
+      
       // Don't show specific error messages for security reasons
       // Even if the email doesn't exist, we don't want to reveal that
       toast({
-        title: "Reset link sent",
-        description: "If the email is registered, you will receive a password reset link.",
+        title: t("auth.resetPassword.linkSentTitle"),
+        description: t("auth.resetPassword.linkSentDescription"),
         variant: "default"
       });
       setIsSubmitted(true);
