@@ -24,6 +24,8 @@ import {
     navigationMenuTriggerStyle,
 } from "@/components/ui/navigation-menu";
 import { useTranslation } from "@/lib/i18n/TranslationProvider";
+import { authService } from '@/services/authService';
+import LoginModal from './LoginModal';
 
 type HeaderProps = {
     currentLanguage?: string;
@@ -36,6 +38,9 @@ export const Header: React.FC<HeaderProps> = ({ currentLanguage = "en" }) => {
     const router = useRouter();
     const pathname = usePathname();
     const { t, setLocale, locale } = useTranslation();
+    const [isAuthenticated, setIsAuthenticated] = useState(false);
+    const [showLoginModal, setShowLoginModal] = useState(false);
+    const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false);
 
     // Use the locale from the context if available, otherwise use the prop
     const activeLocale = locale || currentLanguage as Locale;
@@ -57,6 +62,27 @@ export const Header: React.FC<HeaderProps> = ({ currentLanguage = "en" }) => {
 
         window.addEventListener("scroll", handleScroll);
         return () => window.removeEventListener("scroll", handleScroll);
+    }, []);
+
+    // Check authentication status on mount and when auth changes
+    useEffect(() => {
+        const checkAuth = () => {
+            setIsAuthenticated(authService.isAuthenticated());
+        };
+        
+        // Check on mount
+        checkAuth();
+        
+        // Set up storage event listener to detect auth changes
+        const handleStorageChange = () => {
+            checkAuth();
+        };
+        
+        window.addEventListener('storage', handleStorageChange);
+        
+        return () => {
+            window.removeEventListener('storage', handleStorageChange);
+        };
     }, []);
 
     // Function to handle language change
@@ -104,6 +130,17 @@ export const Header: React.FC<HeaderProps> = ({ currentLanguage = "en" }) => {
         setIsMenuOpen(!isMenuOpen);
     };
 
+    const handleLoginSuccess = () => {
+        setIsAuthenticated(true);
+        setShowLoginModal(false);
+    };
+    
+    const handleLogout = () => {
+        authService.logout();
+        setIsAuthenticated(false);
+        router.push('/');
+    };
+
     return (
         <header
             className={`sticky top-0 z-50 w-full transition-all duration-300 ${isScrolled ? "bg-background/95 backdrop-blur-sm shadow-sm" : "bg-background"
@@ -144,13 +181,22 @@ export const Header: React.FC<HeaderProps> = ({ currentLanguage = "en" }) => {
                             </NavigationMenuList>
                         </NavigationMenu>
 
-                        <Button variant="outline" onClick={handleLoginClick}>
-                            {t('common.login')}
-                        </Button>
-
-                        <Button onClick={handleRegisterClick}>
-                            {t('common.register')}
-                        </Button>
+                        {isAuthenticated ? (
+                            <Button onClick={handleLogout} variant="outline">
+                                {t('common.logout')}
+                            </Button>
+                        ) : (
+                            <>
+                                <Button variant="outline" onClick={() => setShowLoginModal(true)}>
+                                    {t('common.login')}
+                                </Button>
+                                <Button asChild>
+                                    <Link href="/register">
+                                        {t('common.register')}
+                                    </Link>
+                                </Button>
+                            </>
+                        )}
 
                         {/* Language Selector */}
                         <DropdownMenu>
@@ -259,6 +305,17 @@ export const Header: React.FC<HeaderProps> = ({ currentLanguage = "en" }) => {
                     </a>
                 </div>
             </div>
+
+            {/* Login Modal */}
+            <LoginModal
+                isOpen={showLoginModal}
+                onClose={() => setShowLoginModal(false)}
+                onSuccess={handleLoginSuccess}
+                onForgotPassword={() => {
+                    setShowLoginModal(false);
+                    setShowForgotPasswordModal(true);
+                }}
+            />
 
             {/* Add styles for nav link animations */}
             <style jsx global>{`

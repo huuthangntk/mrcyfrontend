@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { toast } from '@/components/ui/use-toast';
+import { API_BASE_URL } from '@/lib/config';
 
 // Enhanced error interface
 interface ApiError extends Error {
@@ -93,224 +94,167 @@ const handleApiError = (error: any): string => {
   return errorMessage;
 };
 
-// Auth service
-export const authService = {
-  // Register a new user
-  async register(userData: {
-    username: string;
-    email: string;
-    fullName: string;
-    password: string;
-  }) {
+// Types
+interface LoginParams {
+  email: string;
+  password: string;
+}
+
+interface VerifyLoginEmailParams {
+  userId: number;
+  code: string;
+}
+
+interface LoginResponse {
+  message?: string;
+  code?: string;
+  userId?: number;
+  accessToken?: string;
+  refreshToken?: string;
+  username?: string;
+  fullName?: string;
+}
+
+// Storage key constants
+const ACCESS_TOKEN_KEY = 'accessToken';
+const REFRESH_TOKEN_KEY = 'refreshToken';
+
+class AuthService {
+  private baseUrl = API_BASE_URL;
+
+  async login(params: LoginParams): Promise<LoginResponse> {
     try {
-      const response = await api.post('/api/auth/register', userData);
-      return response.data;
-    } catch (error) {
-      handleApiError(error);
-      return null;
+      const response = await fetch(`${this.baseUrl}/api/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(params),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Login failed');
+      }
+
+      return data;
+    } catch (error: any) {
+      console.error('Login error:', error);
+      toast({
+        title: 'Login Error',
+        description: error.message || 'Failed to login. Please try again.',
+        variant: 'destructive',
+      });
+      throw error;
     }
-  },
-  
-  // Verify email with token (from email link)
-  async verifyEmailToken(token: string) {
+  }
+
+  async verifyLoginEmail(params: VerifyLoginEmailParams): Promise<LoginResponse> {
     try {
-      const response = await api.get(`/api/auth/verify-email/${token}`);
-      return response.data;
-    } catch (error) {
-      handleApiError(error);
-      return null;
+      const response = await fetch(`${this.baseUrl}/api/auth/verify-login-email`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(params),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Verification failed');
+      }
+
+      return data;
+    } catch (error: any) {
+      console.error('Verification error:', error);
+      toast({
+        title: 'Verification Error',
+        description: error.message || 'Failed to verify code. Please try again.',
+        variant: 'destructive',
+      });
+      throw error;
     }
-  },
-  
-  // Verify email with code
-  async verifyEmailCode(data: { email: string; code: string }) {
+  }
+
+  /**
+   * Stores authentication tokens either in localStorage or sessionStorage
+   * @param accessToken Access token
+   * @param refreshToken Refresh token
+   * @param rememberMe Whether to store in localStorage (true) or sessionStorage (false)
+   */
+  setTokens(accessToken: string, refreshToken: string, rememberMe: boolean): void {
     try {
-      const response = await api.post('/api/auth/verify-code', data);
-      return response.data;
-    } catch (error) {
-      handleApiError(error);
-      throw error; // Re-throw for component-level error handling
-    }
-  },
-  
-  // Login user
-  async login(credentials: { email: string; password: string }) {
-    try {
-      const response = await api.post('/api/auth/login', credentials);
+      // Clear existing tokens first
+      this.logout();
       
-      // Store tokens in localStorage
-      if (response.data.accessToken) {
-        localStorage.setItem('accessToken', response.data.accessToken);
-        localStorage.setItem('refreshToken', response.data.refreshToken);
+      const storage = rememberMe ? localStorage : sessionStorage;
+      storage.setItem(ACCESS_TOKEN_KEY, accessToken);
+      storage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+      
+      // Dispatch a storage event to notify other tabs/components
+      window.dispatchEvent(new Event('storage'));
+    } catch (error) {
+      console.error('Error storing tokens:', error);
+    }
+  }
+
+  /**
+   * Removes all authentication tokens from both localStorage and sessionStorage
+   */
+  logout(): void {
+    try {
+      localStorage.removeItem(ACCESS_TOKEN_KEY);
+      localStorage.removeItem(REFRESH_TOKEN_KEY);
+      sessionStorage.removeItem(ACCESS_TOKEN_KEY);
+      sessionStorage.removeItem(REFRESH_TOKEN_KEY);
+      
+      // Dispatch a storage event to notify other tabs/components
+      window.dispatchEvent(new Event('storage'));
+    } catch (error) {
+      console.error('Error during logout:', error);
+    }
+  }
+
+  /**
+   * Checks if the user is authenticated by verifying token existence
+   * @returns boolean indicating if the user is authenticated
+   */
+  isAuthenticated(): boolean {
+    try {
+      if (typeof window === 'undefined') {
+        return false; // Not authenticated in server-side context
       }
       
-      return response.data;
+      return !!(
+        localStorage.getItem(ACCESS_TOKEN_KEY) || 
+        sessionStorage.getItem(ACCESS_TOKEN_KEY)
+      );
     } catch (error) {
-      handleApiError(error);
-      throw error; // Re-throw for component-level error handling
-    }
-  },
-  
-  // Refresh token
-  async refreshToken(refreshToken: string) {
-    try {
-      const response = await axios.post(`${API_URL}/api/auth/refresh-token`, { refreshToken });
-      return response.data;
-    } catch (error) {
-      handleApiError(error);
-      return null;
-    }
-  },
-  
-  // Logout user
-  async logout() {
-    try {
-      const refreshToken = localStorage.getItem('refreshToken');
-      if (!refreshToken) return;
-      
-      await api.post('/api/auth/logout', { refreshToken });
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('refreshToken');
-      return true;
-    } catch (error) {
-      console.error('Logout error:', error);
-      // Still remove tokens even if API call fails
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('refreshToken');
+      console.error('Error checking authentication status:', error);
       return false;
     }
-  },
-  
-  // Request password reset
-  async forgotPassword(email: string) {
-    try {
-      const response = await api.post('/api/auth/forgot-password', { email });
-      return response.data;
-    } catch (error) {
-      handleApiError(error);
-      return null;
-    }
-  },
-  
-  // Reset password with token
-  async resetPassword(data: { token: string; newPassword: string }) {
-    try {
-      const response = await api.post('/api/auth/reset-password', data);
-      return response.data;
-    } catch (error) {
-      handleApiError(error);
-      throw error; // Re-throw for component-level error handling
-    }
-  },
-  
-  // Resend verification email
-  async resendVerificationEmail(email: string) {
-    try {
-      // The API doesn't have a specific endpoint for resending verification
-      // so we'll reuse the registration endpoint with a "resend" flag
-      const response = await api.post('/api/auth/resend-verification', { email });
-      return response.data;
-    } catch (error) {
-      handleApiError(error);
-      return null;
-    }
-  },
-  
-  // Get current user
-  async getCurrentUser() {
-    try {
-      const response = await api.get('/api/users/me');
-      return response.data;
-    } catch (error) {
-      handleApiError(error);
-      return null;
-    }
-  },
-  
-  // Verify 2FA code during login
-  async verify2FA(data: { userId: number; code: string }) {
-    try {
-      const response = await api.post('/api/2fa/verify', data);
-      
-      // If verification is successful, update the tokens
-      if (response.data.accessToken) {
-        localStorage.setItem('accessToken', response.data.accessToken);
-        localStorage.setItem('refreshToken', response.data.refreshToken);
-      }
-      
-      return response.data;
-    } catch (error) {
-      handleApiError(error);
-      throw error; // Re-throw for component-level error handling
-    }
-  },
-  
-  // Verify two-factor authentication during login
-  async verifyTwoFactorAuth(data: { email: string; password: string; code: string; userId?: number }) {
-    try {
-      // Extract userId from data if available, otherwise make initial login call
-      let userId = data.userId;
-      
-      if (!userId) {
-        // First attempt login to get userId
-        const loginResponse = await this.login({ email: data.email, password: data.password });
-        userId = loginResponse.userId;
-      }
-      
-      // Call the correct endpoint according to the API specification
-      const response = await api.post('/api/auth/verify-login-app', {
-        userId,
-        code: data.code
-      });
-      
-      // If verification is successful, store the tokens
-      if (response.data.accessToken) {
-        localStorage.setItem('accessToken', response.data.accessToken);
-        localStorage.setItem('refreshToken', response.data.refreshToken);
-      }
-      
-      return response.data;
-    } catch (error) {
-      handleApiError(error);
-      throw error; // Re-throw for component-level error handling
-    }
-  },
-  
-  // Verify login email verification code
-  async verifyLoginEmailCode(data: { email: string; password: string; code: string; userId?: number }) {
-    try {
-      // Extract userId from data if available, otherwise make initial login call
-      let userId = data.userId;
-      
-      if (!userId) {
-        // First attempt login to get userId
-        const loginResponse = await this.login({ email: data.email, password: data.password });
-        userId = loginResponse.userId;
-      }
-      
-      // Call the correct endpoint according to the API specification
-      const response = await api.post('/api/auth/verify-login-email', {
-        userId,
-        code: data.code
-      });
-      
-      // If verification is successful, store the tokens
-      if (response.data.accessToken) {
-        localStorage.setItem('accessToken', response.data.accessToken);
-        localStorage.setItem('refreshToken', response.data.refreshToken);
-      }
-      
-      return response.data;
-    } catch (error) {
-      handleApiError(error);
-      throw error; // Re-throw for component-level error handling
-    }
-  },
-  
-  // Check if user is authenticated
-  isAuthenticated() {
-    return !!localStorage.getItem('accessToken');
   }
-};
 
-export default authService; 
+  /**
+   * Gets the current access token from storage
+   * @returns The access token or null if not found
+   */
+  getToken(): string | null {
+    try {
+      if (typeof window === 'undefined') {
+        return null;
+      }
+      
+      return localStorage.getItem(ACCESS_TOKEN_KEY) || 
+             sessionStorage.getItem(ACCESS_TOKEN_KEY) || 
+             null;
+    } catch (error) {
+      console.error('Error getting token:', error);
+      return null;
+    }
+  }
+}
+
+export const authService = new AuthService(); 

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -14,12 +14,11 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
-import ForgotPasswordModal from './ForgotPasswordModal';
-import TwoFactorAuthModal from './TwoFactorAuthModal';
-import LoginEmailVerificationModal from './LoginEmailVerificationModal';
-import { authService } from '@/services/authService';
 import { toast } from '@/components/ui/use-toast';
 import { useTranslation } from '@/lib/i18n/TranslationProvider';
+import { authService } from '@/services/authService';
+import { useRouter } from 'next/navigation';
+import LoginEmailVerificationModal from './LoginEmailVerificationModal';
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -35,15 +34,15 @@ export const LoginModal: React.FC<LoginModalProps> = ({
   onForgotPassword
 }) => {
   const { t } = useTranslation();
+  const router = useRouter();
+  
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false);
   
-  // Verification modals
-  const [showTwoFactorModal, setShowTwoFactorModal] = useState(false);
+  // Verification modal
   const [showEmailVerificationModal, setShowEmailVerificationModal] = useState(false);
   const [userId, setUserId] = useState<number | undefined>(undefined);
 
@@ -57,30 +56,22 @@ export const LoginModal: React.FC<LoginModalProps> = ({
         password
       });
       
-      // If we got a response with a code, handle it appropriately
       if (response) {
-        // Store userId from response if available
+        // Store userId from response for verification
         if (response.userId) {
           setUserId(response.userId);
         }
         
-        // Check if login is directly successful
-        if (response.code === 'LOGIN_SUCCESS' || (response.accessToken && response.refreshToken)) {
-          // Already successful, no need for additional verification
-          handleVerificationSuccess(response);
-        } 
-        // Only show verification modals if specifically required
-        else if (response.code === 'REQUIRE_2FA_CODE') {
-          setShowTwoFactorModal(true);
-        } else if (response.code === 'EMAIL_VERIFICATION_REQUIRED') {
+        // Check response code to determine next step
+        if (response.code === 'EMAIL_VERIFICATION_REQUIRED') {
           setShowEmailVerificationModal(true);
-        } else {
-          // For any other code or unknown situation, try to handle as success if we have tokens
-          handleVerificationSuccess(response);
+        } else if (response.code === 'LOGIN_SUCCESS' && response.accessToken && response.refreshToken) {
+          // Direct successful login
+          handleLoginSuccess(response);
         }
       }
     } catch (error) {
-      // Error handling is already done in the authService
+      // Error handling is done in authService
     } finally {
       setIsLoading(false);
     }
@@ -89,44 +80,40 @@ export const LoginModal: React.FC<LoginModalProps> = ({
   const handleForgotPassword = (e: React.MouseEvent) => {
     e.preventDefault();
     
-    // First close this modal
+    // Close this modal
     onClose();
     
-    // Open the forgot password modal
-    setTimeout(() => {
-      if (onForgotPassword) {
+    // Open the forgot password modal if provided
+    if (onForgotPassword) {
+      setTimeout(() => {
         onForgotPassword();
-      } else {
-        setShowForgotPasswordModal(true);
-      }
-    }, 100); // Small delay to ensure modal close has completed
+      }, 100);
+    }
   };
   
-  const handleForgotPasswordSuccess = () => {
-    setShowForgotPasswordModal(false);
-    // Any additional actions after password reset request
-  };
-  
-  const handleVerificationSuccess = (response: any) => {
-    // Close all verification modals
-    setShowTwoFactorModal(false);
+  const handleLoginSuccess = (response: any) => {
+    // Close verification modal
     setShowEmailVerificationModal(false);
     
-    // Store tokens in localStorage or sessionStorage regardless of response code
-    if (response && (response.accessToken && response.refreshToken)) {
-      if (rememberMe) {
-        localStorage.setItem('accessToken', response.accessToken);
-        localStorage.setItem('refreshToken', response.refreshToken);
-        localStorage.setItem('rememberMe', 'true');
-      } else {
-        sessionStorage.setItem('accessToken', response.accessToken);
-        sessionStorage.setItem('refreshToken', response.refreshToken);
-      }
+    // Store tokens based on remember me preference
+    if (response && response.accessToken && response.refreshToken) {
+      authService.setTokens(response.accessToken, response.refreshToken, rememberMe);
       
-      // Handle successful login - never show any other modal after verification
+      // Show success message
+      toast({
+        title: t('auth.loginSuccess'),
+        description: t('auth.welcomeBack'),
+      });
+      
+      // Close login modal
+      onClose();
+      
+      // Call onSuccess to update UI state
       onSuccess();
+      
+      // Redirect to dashboard
+      router.push('/dashboard');
     } else {
-      // Handle error case when tokens are missing
       toast({
         title: t('auth.error'),
         description: t('auth.loginFailed'),
@@ -226,34 +213,15 @@ export const LoginModal: React.FC<LoginModalProps> = ({
         </DialogContent>
       </Dialog>
       
-      {/* Forgot Password Modal */}
-      <ForgotPasswordModal
-        isOpen={showForgotPasswordModal}
-        onClose={() => setShowForgotPasswordModal(false)}
-        onSuccess={handleForgotPasswordSuccess}
-      />
-      
-      {/* Two Factor Authentication Modal */}
-      <TwoFactorAuthModal 
-        isOpen={showTwoFactorModal}
-        onClose={() => setShowTwoFactorModal(false)}
-        onSuccess={handleVerificationSuccess}
-        email={email}
-        password={password}
-        userId={userId}
-      />
-      
       {/* Email Verification Modal */}
       <LoginEmailVerificationModal
         isOpen={showEmailVerificationModal}
         onClose={() => setShowEmailVerificationModal(false)}
-        onSuccess={handleVerificationSuccess}
-        email={email}
-        password={password}
+        onSuccess={handleLoginSuccess}
         userId={userId}
       />
     </>
   );
 };
 
-export default LoginModal; 
+export default LoginModal;
