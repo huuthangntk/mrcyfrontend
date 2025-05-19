@@ -2,9 +2,8 @@
 
 import React from 'react';
 import ProtectedRoute from '@/components/ProtectedRoute';
-import ProfileForm from '@/components/ProfileForm';
-import { useTranslation } from '@/lib/i18n/client';
-import { Locale } from '@/lib/i18n/config';
+import { ProfileFormRedesigned } from '@/components/ProfileFormRedesigned';
+import { useTranslation } from '@/lib/i18n/TranslationProvider';
 
 interface ProfilePageProps {
   params: {
@@ -13,13 +12,13 @@ interface ProfilePageProps {
 }
 
 export default function ProfilePage({ params }: ProfilePageProps) {
-  const { t } = useTranslation(params.locale as Locale, 'profile');
+  const { t } = useTranslation();
   
   return (
     <ProtectedRoute>
-      <div className="container py-10">
-        <h1 className="text-3xl font-bold mb-8">{t('profile.title', 'Profile')}</h1>
-        <ProfileForm />
+      <div className="container py-10 max-w-5xl mx-auto px-4">
+        <h1 className="text-3xl font-bold mb-8 text-center">{t('profile.title')}</h1>
+        <ProfileFormRedesigned />
       </div>
     </ProtectedRoute>
   );

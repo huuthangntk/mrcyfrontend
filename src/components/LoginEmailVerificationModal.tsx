@@ -21,7 +21,7 @@ interface LoginEmailVerificationModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: (data: any) => void;
-  userId: number | undefined;
+  userId?: number;
 }
 
 export const LoginEmailVerificationModal: React.FC<LoginEmailVerificationModalProps> = ({ 
@@ -33,18 +33,57 @@ export const LoginEmailVerificationModal: React.FC<LoginEmailVerificationModalPr
   const { t } = useTranslation();
   const [verificationCode, setVerificationCode] = useState(['', '', '', '', '', '']);
   const [isLoading, setIsLoading] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
+  const [timer, setTimer] = useState(120);
+  const [canResend, setCanResend] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const formRef = useRef<HTMLFormElement>(null);
   
-  // Reset state when modal opens
+  // Track last successful send time
+  const [lastSendTime, setLastSendTime] = useState<number | null>(null);
+  const RESEND_INTERVAL_MS = 120000; // 2 minutes (in milliseconds)
+  
+  // Reset state when modal closes
   useEffect(() => {
-    if (isOpen) {
-      setVerificationCode(['', '', '', '', '', '']);
-      setError(null);
+    if (!isOpen) {
+      // Reset state when modal closes
+      return;
     }
   }, [isOpen]);
 
+  // Set up timer for resend code
+  useEffect(() => {
+    if (!isOpen) return;
+    
+    // Check if we have a last send time and it's less than 2 minutes ago
+    if (lastSendTime) {
+      const elapsedTime = Date.now() - lastSendTime;
+      if (elapsedTime < RESEND_INTERVAL_MS) {
+        // Calculate remaining time in seconds
+        const remainingTime = Math.ceil((RESEND_INTERVAL_MS - elapsedTime) / 1000);
+        setTimer(remainingTime);
+        setCanResend(false);
+      } else {
+        setCanResend(true);
+        setTimer(0);
+      }
+    }
+    
+    const interval = setInterval(() => {
+      setTimer((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          setCanResend(true);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    
+    return () => clearInterval(interval);
+  }, [isOpen, lastSendTime]);
+  
   // Set up refs with callback
   const setInputRef = (index: number) => (el: HTMLInputElement | null) => {
     inputRefs.current[index] = el;
@@ -87,7 +126,7 @@ export const LoginEmailVerificationModal: React.FC<LoginEmailVerificationModalPr
           // Move focus to previous input
           inputRefs.current[index - 1]?.focus();
           
-          // Clear the previous field too
+          // Optional: Clear the previous field too
           const newCode = [...verificationCode];
           newCode[index - 1] = '';
           setVerificationCode(newCode);
@@ -155,40 +194,33 @@ export const LoginEmailVerificationModal: React.FC<LoginEmailVerificationModalPr
       return;
     }
     
-    if (!userId) {
-      setError(t('auth.invalidUserId'));
-      return;
-    }
-    
     setIsLoading(true);
     
     try {
+      // Check if userId is defined
+      if (!userId) {
+        setError(t('auth.loginVerification.missingUserId'));
+        return;
+      }
+      
       const response = await authService.verifyLoginEmail({
         userId,
         code
       });
       
-      if (response && response.code === 'LOGIN_SUCCESS' && response.accessToken && response.refreshToken) {
+      // Check if response indicates successful login
+      if (response.code === 'LOGIN_SUCCESS' && response.accessToken && response.refreshToken) {
         toast({
           title: t('auth.loginVerification.success'),
           description: t('auth.loginVerification.successMessage'),
           variant: "default"
         });
         
-        // Call onSuccess to handle successful verification
-        onSuccess(response);
-      } else if (response && (response.accessToken && response.refreshToken)) {
-        // If we have tokens but no specific code, assume success
-        toast({
-          title: t('auth.loginVerification.success'),
-          description: t('auth.loginVerification.successMessage'),
-          variant: "default"
-        });
-        
+        // Call onSuccess to handle successful verification and pass tokens
         onSuccess(response);
       } else {
-        // If we don't have any indication of success, show an error
-        throw new Error(t('auth.loginVerification.invalidResponse'));
+        // Handle unexpected response format
+        setError(t('auth.loginVerification.invalidResponse'));
       }
     } catch (error: any) {
       console.error('Login verification error:', error);
@@ -204,10 +236,10 @@ export const LoginEmailVerificationModal: React.FC<LoginEmailVerificationModalPr
         errorMessage = error.message;
       }
       
-      // Set error message in UI
+      // Set error message that shows in the UI
       setError(errorCode ? t(`auth.${errorCode}`) : errorMessage);
       
-      // Also show a toast
+      // Also show a toast for better visibility
       toast({
         title: t('auth.loginVerification.failedTitle'),
         description: errorCode ? t(`auth.${errorCode}`) : errorMessage,
@@ -216,6 +248,15 @@ export const LoginEmailVerificationModal: React.FC<LoginEmailVerificationModalPr
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Handle code resend - not implemented on the backend for this flow
+  const handleResendCode = async () => {
+    toast({
+      title: t('auth.resendCode'),
+      description: t('auth.loginVerification.resendNotSupported'),
+      variant: "destructive"
+    });
   };
 
   // Focus first input when modal opens
@@ -280,6 +321,34 @@ export const LoginEmailVerificationModal: React.FC<LoginEmailVerificationModalPr
             ))}
           </div>
           
+          {/* Resend code */}
+          <div className="text-center">
+            <p className="text-sm text-muted-foreground">
+              {canResend ? (
+                <Button 
+                  variant="link" 
+                  className="p-0 h-auto text-primary"
+                  onClick={handleResendCode}
+                  type="button"
+                  disabled={resendLoading}
+                >
+                  {resendLoading ? (
+                    <>
+                      <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                      {t('auth.sending')}
+                    </>
+                  ) : (
+                    t('auth.resendCode')
+                  )}
+                </Button>
+              ) : (
+                <>
+                  {t('auth.resendCodeIn')} <span className="font-medium">{timer}</span> {t('auth.seconds')}
+                </>
+              )}
+            </p>
+          </div>
+          
           <DialogFooter className="pt-4">
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? (
@@ -298,4 +367,4 @@ export const LoginEmailVerificationModal: React.FC<LoginEmailVerificationModalPr
   );
 };
 
-export default LoginEmailVerificationModal;
+export default LoginEmailVerificationModal; 

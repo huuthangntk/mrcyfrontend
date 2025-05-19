@@ -25,7 +25,7 @@ const en: Translation = {
     loggingIn: 'Logging in...',
     invalidCredentials: 'Invalid credentials. Please try again.',
     loginFailed: 'Login failed',
-    
+
     // Register Modal
     registerTitle: 'Create an Account',
     registerDescription: 'Fill in your details to create your account',
@@ -39,7 +39,7 @@ const en: Translation = {
     acceptTerms: 'You must accept the terms and conditions',
     passwordTooWeak: 'Password is too weak',
     termsAndConditions: 'I accept the Terms and Conditions',
-    
+
     // Common verification elements
     error: 'Error',
     verify: 'Verify',
@@ -49,7 +49,7 @@ const en: Translation = {
     seconds: 'seconds',
     resendCode: 'Resend Code',
     sending: 'Sending...',
-    
+
     // Error codes
     errorCodes: {
       DUPLICATED_EMAIL_OR_USERNAME: 'User with this email or username already exists',
@@ -59,7 +59,7 @@ const en: Translation = {
       MISSING_REQUIRED_FIELDS: 'Please fill in all required fields',
       SERVER_ERROR: 'Server error. Please try again later'
     },
-    
+
     // Password Strength
     passwordStrength: 'Password Strength:',
     weak: 'Weak',
@@ -72,7 +72,7 @@ const en: Translation = {
       number: 'One number',
       special: 'One special character'
     },
-    
+
     // Email Verification Modal (Registration)
     verifyEmailTitle: 'Verify Your Email',
     verifyEmailDescription: 'We\'ve sent a 6-digit verification code to',
@@ -80,7 +80,7 @@ const en: Translation = {
     verifyEmail: 'Verify Email',
     emailVerified: 'Your email has been successfully verified.',
     invalidVerificationCode: 'Invalid verification code. Please try again.',
-    
+
     // Two-Factor Authentication Modal
     twoFactorAuth: {
       title: 'Two-Factor Authentication',
@@ -91,7 +91,7 @@ const en: Translation = {
       successMessage: 'Your identity has been verified successfully.',
       failedTitle: 'Authentication Failed'
     },
-    
+
     // Login Email Verification Modal
     loginVerification: {
       title: 'Verify Your Login',
@@ -104,7 +104,7 @@ const en: Translation = {
       failedTitle: 'Verification Failed',
       failed: 'Verification failed. Please try again.'
     },
-    
+
     // Email Verification Page
     verification: {
       verifying: 'Verifying Your Email',
@@ -118,13 +118,13 @@ const en: Translation = {
       returnToLogin: 'Return to Login',
       resendButton: 'Resend Verification Email'
     },
-    
+
     // Two-Factor Modal
     twoFactorTitle: 'Two-Factor Authentication',
     twoFactorDescription: 'Enter the 6-digit code from your authenticator app',
     codeRefreshesIn: 'Code refreshes in',
     getNewCode: 'Please get a new code from your app',
-    
+
     // Forgot Password Modal
     resetPasswordTitle: 'Reset Your Password',
     resetLinkSent: 'Email Sent',
@@ -133,7 +133,7 @@ const en: Translation = {
     sendResetLink: 'Send Reset Link',
     redirecting: 'Redirecting you...',
     resetLinkSentMessage: 'If the email is registered, you will receive a password reset link.',
-    
+
     // Reset Password Modal
     setNewPasswordTitle: 'Set New Password',
     createNewPassword: 'Create a new secure password for your account',
@@ -142,6 +142,83 @@ const en: Translation = {
     resettingPassword: 'Resetting Password...',
     passwordResetSuccess: 'Your password has been reset successfully!',
     redirectingToLogin: 'Redirecting to login...'
+  },
+  profile: {
+    title: 'Profile Information',
+    description: 'Update your account details',
+    loading: 'Loading profile...',
+    fullName: 'Full Name',
+    username: 'Username',
+    usernameDescription: 'This will be used for your profile URL',
+    email: 'Email',
+    emailDescription: 'Email cannot be changed directly. Contact support for assistance.',
+    saveChanges: 'Save Changes',
+    saving: 'Saving...',
+    profileUpdated: 'Profile updated successfully',
+    errorUpdating: 'Failed to update profile',
+    tabs: {
+      profile: 'Profile Information',
+      password: 'Change Password',
+      twoFactor: 'Two-Factor Authentication'
+    }
+  },
+  security: {
+    // Password Change Section
+    passwordTitle: 'Password',
+    passwordDescription: 'Change your password to keep your account secure',
+    currentPassword: 'Current Password',
+    newPassword: 'New Password',
+    confirmPassword: 'Confirm New Password',
+    showPassword: 'Show password',
+    hidePassword: 'Hide password',
+    changePassword: 'Change Password',
+    changingPassword: 'Changing Password...',
+    passwordChanged: 'Password Changed Successfully',
+    passwordChangeError: 'Failed to change password',
+    passwordsDoNotMatch: 'New passwords do not match',
+    invalidCurrentPassword: 'Current password is incorrect',
+    error: 'Error',
+
+    // 2FA Section
+    twoFactorTitle: 'Two-Factor Authentication',
+    twoFactorDescription: 'Add an extra layer of security to your account by requiring a verification code from your mobile device',
+    loading: 'Loading...',
+
+    // 2FA Disabled State
+    twoFactorDisabledText: 'Two-factor authentication adds an extra layer of security to your account by requiring a verification code from your mobile device when you sign in.',
+    recommendationText: 'We strongly recommend enabling two-factor authentication for your account security.',
+    enable2FA: 'Enable 2FA',
+
+    // 2FA Enabled State
+    twoFactorEnabledText: 'Two-factor authentication is enabled for your account.',
+    disable2FA: 'Disable 2FA',
+    disabling: 'Disabling...',
+
+    // 2FA Setup
+    setupInstructions: `Scan this QR code with your authenticator app and then enter the verification code below. Keep your recovery codes in a safe place - you'll need them if you lose access to your authenticator app.`,
+
+    important: 'Important',
+    secretKey: 'Secret Key (if you can\'t scan the QR code)',
+    secretKeyInstructions: 'Enter this code into your authenticator app if you can\'t scan the QR code. Use a TOTP-compatible app like Google Authenticator, Authy, or Microsoft Authenticator.',
+    verificationCode: 'Verification Code',
+    enterCurrentCode: 'Enter your authenticator code to disable 2FA',
+    currentCodeInstructions: 'Enter a current valid code from your authenticator app to confirm it\'s you.',
+    disableSecurity: 'Disabling two-factor authentication will reduce the security of your account. Anyone who knows your password will be able to log in.',
+    cancel: 'Cancel',
+    verifyAndActivate: 'Verify and Activate',
+
+    // 2FA Status Messages
+    twoFactorEnabled: '2FA Enabled Successfully',
+    twoFactorEnabledDescription: 'Your account is now protected with two-factor authentication.',
+    twoFactorDisabled: '2FA Disabled',
+    twoFactorDisabledDescription: 'Two-factor authentication has been disabled for your account.',
+    twoFactorSetupError: 'Failed to set up two-factor authentication',
+    invalidCode: 'Invalid Code',
+    enterValidCode: 'Please enter a valid 6-digit code',
+    verificationFailed: 'Verification failed. Please try again with a new code.',
+    verificationError: 'An error occurred during verification',
+    disableError: 'Failed to disable two-factor authentication',
+    missingUserData: 'User information not available'
   },
   hero: {
     title: 'Mercy - Empowering',
@@ -156,7 +233,7 @@ const en: Translation = {
   securityFeatures: {
     title: "Military-Grade Security",
     subtitle: "Your assets and personal data are protected by enterprise-level security measures and real-time monitoring.",
-    
+
     // Security Features tabs
     multiChannelAlerts: {
       title: "Multi-Channel Security Alerts",

@@ -21,8 +21,6 @@ interface TwoFactorAuthModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: (data: any) => void;
-  email: string;
-  password: string;
   userId?: number;
 }
 
@@ -30,8 +28,6 @@ export const TwoFactorAuthModal: React.FC<TwoFactorAuthModalProps> = ({
   isOpen,
   onClose,
   onSuccess,
-  email,
-  password,
   userId
 }) => {
   const { t } = useTranslation();
@@ -154,15 +150,19 @@ export const TwoFactorAuthModal: React.FC<TwoFactorAuthModalProps> = ({
     setIsLoading(true);
     
     try {
-      const response = await authService.verifyTwoFactorAuth({
-        email,
-        password,
-        code,
-        userId
+      // Check if userId is defined
+      if (!userId) {
+        setError(t('auth.twoFactorAuth.missingUserId'));
+        return;
+      }
+      
+      const response = await authService.verify2FA({
+        userId,
+        code
       });
       
-      // Check if the response includes a LOGIN_SUCCESS code and tokens
-      if (response && response.code === 'LOGIN_SUCCESS' && response.accessToken && response.refreshToken) {
+      // Check if response indicates successful login
+      if (response.code === 'LOGIN_SUCCESS' && response.accessToken && response.refreshToken) {
         toast({
           title: t('auth.twoFactorAuth.success'),
           description: t('auth.twoFactorAuth.successMessage'),
@@ -171,18 +171,9 @@ export const TwoFactorAuthModal: React.FC<TwoFactorAuthModalProps> = ({
         
         // Call onSuccess to handle successful verification
         onSuccess(response);
-      } else if (response && (response.accessToken && response.refreshToken)) {
-        // If we have tokens but no specific code, assume success
-        toast({
-          title: t('auth.twoFactorAuth.success'),
-          description: t('auth.twoFactorAuth.successMessage'),
-          variant: "default"
-        });
-        
-        onSuccess(response);
       } else {
-        // If we don't have any indication of success, show an error
-        throw new Error(t('auth.twoFactorAuth.invalidResponse'));
+        // Handle unexpected response format
+        setError(t('auth.twoFactorAuth.invalidResponse'));
       }
     } catch (error: any) {
       console.error('Two-factor auth error:', error);
@@ -300,4 +291,4 @@ export const TwoFactorAuthModal: React.FC<TwoFactorAuthModalProps> = ({
   );
 };
 
-export default TwoFactorAuthModal;
+export default TwoFactorAuthModal; 

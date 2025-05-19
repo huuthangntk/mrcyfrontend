@@ -10,6 +10,7 @@ import {
   isTokenExpired,
   refreshAccessToken
 } from '@/lib/auth/token';
+import { API_BASE_URL } from '@/lib/config';
 
 interface User {
   id: number;
@@ -41,9 +42,11 @@ interface LoginResponse {
   userId: number;
   username: string;
   fullName: string;
-  accessToken: string;
-  refreshToken: string;
-  requires2FA?: boolean;
+  accessToken?: string;
+  refreshToken?: string;
+  code?: string;
+  message?: string;
+  email?: string;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -96,7 +99,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // Refresh user data from API
   const refreshUser = async () => {
     try {
-      const response = await fetch('/api/users/me', {
+      const response = await fetch(`${API_BASE_URL}/api/users/me`, {
         headers: {
           Authorization: `Bearer ${getTokens()?.accessToken}`,
         },
@@ -119,7 +122,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // Login function
   const login = async (email: string, password: string) => {
     try {
-      const response = await fetch('/api/auth/login', {
+      const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -131,11 +134,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         throw new Error('Login failed');
       }
 
-      const data = await response.json() as LoginResponse;
+      const data = await response.json();
 
       // Check if 2FA is required
-      if (data.requires2FA) {
-        return { success: true, requires2FA: true };
+      if (data.code === '2FA_REQUEST') {
+        return { 
+          success: true, 
+          requires2FA: true,
+          userId: data.userId 
+        };
       }
 
       // Save tokens
@@ -164,7 +171,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // Verify 2FA code
   const verify2FA = async (userId: number, code: string) => {
     try {
-      const response = await fetch('/api/2fa/verify', {
+      const response = await fetch(`${API_BASE_URL}/api/auth/verify-login-app`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -176,10 +183,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         throw new Error('2FA verification failed');
       }
 
-      // After 2FA verification, we need to fetch tokens again
-      // In a real implementation, the API would return tokens directly
-      // For now, we'll just simulate successful 2FA
-      await refreshUser();
+      const data = await response.json();
+      
+      // Save tokens returned after 2FA verification
+      saveTokens({
+        accessToken: data.accessToken,
+        refreshToken: data.refreshToken,
+      });
+      
+      // Set user data
+      setUser({
+        id: data.userId,
+        username: data.username,
+        fullName: data.fullName,
+        email: data.email || '', // Email may not be returned
+        isVerified: true,
+      });
+      
       setIsAuthenticated(true);
       return true;
     } catch (error) {
@@ -191,7 +211,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // Register function
   const register = async (userData: RegisterUserData) => {
     try {
-      const response = await fetch('/api/auth/register', {
+      const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

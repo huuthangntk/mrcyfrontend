@@ -2,6 +2,8 @@
  * Token management utilities for handling authentication tokens
  */
 
+import { API_BASE_URL } from '@/lib/config';
+
 interface TokenData {
   accessToken: string;
   refreshToken: string;
@@ -14,8 +16,8 @@ interface DecodedToken {
 }
 
 // Token storage keys
-const ACCESS_TOKEN_KEY = 'access_token';
-const REFRESH_TOKEN_KEY = 'refresh_token';
+const ACCESS_TOKEN_KEY = 'accessToken';
+const REFRESH_TOKEN_KEY = 'refreshToken';
 
 /**
  * Save authentication tokens to storage
@@ -94,7 +96,7 @@ export const refreshAccessToken = async (): Promise<string | null> => {
     const tokens = getTokens();
     if (!tokens) return null;
     
-    const response = await fetch('/api/auth/refresh-token', {
+    const response = await fetch(`${API_BASE_URL}/api/auth/refresh-token`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -105,7 +107,9 @@ export const refreshAccessToken = async (): Promise<string | null> => {
     });
     
     if (!response.ok) {
-      throw new Error('Failed to refresh token');
+      const errorData = await response.json();
+      console.error('Token refresh error:', errorData);
+      throw new Error(errorData.message || 'Failed to refresh token');
     }
     
     const data = await response.json();
@@ -150,7 +154,8 @@ export const getAuthHeader = async (): Promise<HeadersInit | null> => {
  */
 export const authenticatedFetch = async (
   url: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
+  retried: boolean = false
 ): Promise<Response> => {
   try {
     const authHeader = await getAuthHeader();
@@ -164,6 +169,18 @@ export const authenticatedFetch = async (
     };
     
     const response = await fetch(url, { ...options, headers });
+    
+    // Handle 401 Unauthorized - Token expired
+    if (response.status === 401 && !retried) {
+      // Try to refresh the token and retry the request
+      const newToken = await refreshAccessToken();
+      if (!newToken) {
+        throw new Error('Session expired. Please login again.');
+      }
+
+      // Retry the request with new token
+      return authenticatedFetch(url, options, true);
+    }
     
     if (!response.ok) {
       // Try to parse error response
@@ -226,7 +243,7 @@ export const logoutUser = async (): Promise<void> => {
     const tokens = getTokens();
     if (tokens) {
       // Call logout API to invalidate the refresh token
-      await fetch('/api/auth/logout', {
+      await fetch(`${API_BASE_URL}/api/auth/logout`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

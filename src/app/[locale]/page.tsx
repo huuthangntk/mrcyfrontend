@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
 import HeroSection from '@/components/HeroSection';
 import SecurityFeatures from '@/components/SecurityFeatures';
 import FeaturesSection from '@/components/FeaturesSection';
@@ -17,6 +18,8 @@ export default function Home() {
   const [is2FAModalOpen, setIs2FAModalOpen] = useState(false);
   const [registeredEmail, setRegisteredEmail] = useState('');
   const [userData, setUserData] = useState<any>(null);
+  const router = useRouter();
+  const pathname = usePathname();
 
   // Handle modal flows
   const handleLoginSuccess = () => {
@@ -39,7 +42,11 @@ export default function Home() {
 
   const handleVerificationSuccess = () => {
     setIsVerificationModalOpen(false);
-    // Redirect to dashboard or show success message
+    
+    // The tokens are stored by EmailVerificationModal
+    // Redirect to dashboard
+    const locale = pathname.split('/')[1] || 'en';
+    router.push(`/${locale}/dashboard`);
   };
 
   const handle2FASuccess = () => {

@@ -39,24 +39,65 @@ api.interceptors.response.use(
     const originalRequest = error.config;
     
     // If error is 401 and we haven't already tried to refresh
-    if (error.response.status === 401 && !originalRequest._retry) {
+    if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
       
       try {
         const refreshToken = localStorage.getItem('refreshToken');
         if (!refreshToken) throw new Error('No refresh token available');
         
-        const response = await authService.refreshToken(refreshToken);
-        localStorage.setItem('accessToken', response.accessToken);
+        const response = await axios.post(`${API_URL}/api/auth/refresh-token`, {
+          refreshToken
+        });
         
-        // Retry the original request with new token
-        originalRequest.headers.Authorization = `Bearer ${response.accessToken}`;
-        return api(originalRequest);
-      } catch (refreshError) {
-        // If refresh fails, log out the user
+        const { accessToken } = response.data;
+        
+        // Store the new access token
+        localStorage.setItem('accessToken', accessToken);
+        
+        // Update the Authorization header for the original request
+        originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+        
+        // Retry the original request with the new token
+        return axios(originalRequest);
+      } catch (refreshError: any) {
+        // Handle specific refresh token errors based on error codes
+        if (refreshError.response?.data) {
+          const { code, message } = refreshError.response.data;
+          
+          // Handle specific error codes
+          switch(code) {
+            case 'MISSING_REFRESH_TOKEN':
+            case 'INVALID_REFRESH_TOKEN':
+            case 'EXPIRED_REFRESH_TOKEN':
+              toast({
+                title: 'Session Expired',
+                description: 'Your session has expired. Please log in again.',
+                variant: 'destructive'
+              });
+              break;
+            default:
+              toast({
+                title: 'Authentication Error',
+                description: message || 'Failed to refresh authentication. Please log in again.',
+                variant: 'destructive'
+              });
+          }
+        }
+        
+        // Clear tokens and redirect to login
         localStorage.removeItem('accessToken');
         localStorage.removeItem('refreshToken');
+        sessionStorage.removeItem('accessToken');
+        sessionStorage.removeItem('refreshToken');
+        
+        // Trigger events for cross-tab communication
+        window.dispatchEvent(new Event('storage'));
+        window.dispatchEvent(new Event('authStateChange'));
+        
+        // Redirect to login page
         window.location.href = '/login';
+        
         return Promise.reject(refreshError);
       }
     }
@@ -100,29 +141,38 @@ interface LoginParams {
   password: string;
 }
 
-interface VerifyLoginEmailParams {
+interface VerifyEmailParams {
   userId: number;
   code: string;
 }
 
-interface LoginResponse {
+interface Verify2FAParams {
+  userId: number;
+  code: string;
+}
+
+interface AuthResponse {
   message?: string;
   code?: string;
   userId?: number;
-  accessToken?: string;
-  refreshToken?: string;
   username?: string;
   fullName?: string;
+  accessToken?: string;
+  refreshToken?: string;
 }
 
-// Storage key constants
-const ACCESS_TOKEN_KEY = 'accessToken';
-const REFRESH_TOKEN_KEY = 'refreshToken';
+interface RegisterParams {
+  username: string;
+  email: string;
+  fullName: string;
+  password: string;
+}
 
 class AuthService {
   private baseUrl = API_BASE_URL;
 
-  async login(params: LoginParams): Promise<LoginResponse> {
+  // Initial login request
+  async login(params: LoginParams): Promise<AuthResponse> {
     try {
       const response = await fetch(`${this.baseUrl}/api/auth/login`, {
         method: 'POST',
@@ -150,7 +200,8 @@ class AuthService {
     }
   }
 
-  async verifyLoginEmail(params: VerifyLoginEmailParams): Promise<LoginResponse> {
+  // Verify email code
+  async verifyLoginEmail(params: VerifyEmailParams): Promise<AuthResponse> {
     try {
       const response = await fetch(`${this.baseUrl}/api/auth/verify-login-email`, {
         method: 'POST',
@@ -168,93 +219,175 @@ class AuthService {
 
       return data;
     } catch (error: any) {
-      console.error('Verification error:', error);
+      console.error('Email verification error:', error);
       toast({
         title: 'Verification Error',
-        description: error.message || 'Failed to verify code. Please try again.',
+        description: error.message || 'Failed to verify email code. Please try again.',
         variant: 'destructive',
       });
       throw error;
     }
   }
 
-  /**
-   * Stores authentication tokens either in localStorage or sessionStorage
-   * @param accessToken Access token
-   * @param refreshToken Refresh token
-   * @param rememberMe Whether to store in localStorage (true) or sessionStorage (false)
-   */
-  setTokens(accessToken: string, refreshToken: string, rememberMe: boolean): void {
+  // Verify 2FA code
+  async verify2FA(params: Verify2FAParams): Promise<AuthResponse> {
     try {
-      // Clear existing tokens first
-      this.logout();
-      
-      const storage = rememberMe ? localStorage : sessionStorage;
-      storage.setItem(ACCESS_TOKEN_KEY, accessToken);
-      storage.setItem(REFRESH_TOKEN_KEY, refreshToken);
-      
-      // Dispatch a storage event to notify other tabs/components
-      window.dispatchEvent(new Event('storage'));
-    } catch (error) {
-      console.error('Error storing tokens:', error);
+      const response = await fetch(`${this.baseUrl}/api/auth/verify-login-app`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(params),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Verification failed');
+      }
+
+      return data;
+    } catch (error: any) {
+      console.error('2FA verification error:', error);
+      toast({
+        title: '2FA Verification Error',
+        description: error.message || 'Failed to verify 2FA code. Please try again.',
+        variant: 'destructive',
+      });
+      throw error;
     }
   }
 
-  /**
-   * Removes all authentication tokens from both localStorage and sessionStorage
-   */
-  logout(): void {
+  // Store authentication tokens
+  storeTokens(accessToken: string, refreshToken: string, rememberMe: boolean = true) {
+    if (rememberMe) {
+      localStorage.setItem('accessToken', accessToken);
+      localStorage.setItem('refreshToken', refreshToken);
+    } else {
+      sessionStorage.setItem('accessToken', accessToken);
+      sessionStorage.setItem('refreshToken', refreshToken);
+    }
+    
+    // Trigger events for cross-tab communication and in-app state updates
+    window.dispatchEvent(new Event('storage'));
+    window.dispatchEvent(new Event('authStateChange'));
+  }
+
+  // Get stored tokens
+  getTokens() {
+    return {
+      accessToken: localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken'),
+      refreshToken: localStorage.getItem('refreshToken') || sessionStorage.getItem('refreshToken')
+    };
+  }
+
+  // Refresh access token
+  async refreshToken(refreshToken: string): Promise<{ accessToken: string }> {
     try {
-      localStorage.removeItem(ACCESS_TOKEN_KEY);
-      localStorage.removeItem(REFRESH_TOKEN_KEY);
-      sessionStorage.removeItem(ACCESS_TOKEN_KEY);
-      sessionStorage.removeItem(REFRESH_TOKEN_KEY);
-      
-      // Dispatch a storage event to notify other tabs/components
-      window.dispatchEvent(new Event('storage'));
-    } catch (error) {
-      console.error('Error during logout:', error);
+      const response = await fetch(`${this.baseUrl}/api/auth/refresh-token`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ refreshToken }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        const error = new Error(data.message || 'Token refresh failed') as ApiError;
+        error.code = data.code;
+        error.status = response.status;
+        throw error;
+      }
+
+      return {
+        accessToken: data.accessToken
+      };
+    } catch (error: any) {
+      console.error('Token refresh error:', error);
+      throw error;
     }
   }
 
-  /**
-   * Checks if the user is authenticated by verifying token existence
-   * @returns boolean indicating if the user is authenticated
-   */
+  // Logout user
+  logout() {
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+    sessionStorage.removeItem('accessToken');
+    sessionStorage.removeItem('refreshToken');
+    
+    // Trigger storage event for cross-tab communication
+    window.dispatchEvent(new Event('storage'));
+  }
+
+  // Check if user is authenticated
   isAuthenticated(): boolean {
+    return !!(
+      localStorage.getItem('accessToken') || 
+      sessionStorage.getItem('accessToken')
+    );
+  }
+
+  // Register a new user
+  async register(params: RegisterParams): Promise<AuthResponse> {
     try {
-      if (typeof window === 'undefined') {
-        return false; // Not authenticated in server-side context
+      const response = await fetch(`${this.baseUrl}/api/auth/register`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(params),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Registration failed');
       }
-      
-      return !!(
-        localStorage.getItem(ACCESS_TOKEN_KEY) || 
-        sessionStorage.getItem(ACCESS_TOKEN_KEY)
-      );
-    } catch (error) {
-      console.error('Error checking authentication status:', error);
-      return false;
+
+      return data;
+    } catch (error: any) {
+      console.error('Registration error:', error);
+      toast({
+        title: 'Registration Error',
+        description: error.message || 'Failed to register. Please try again.',
+        variant: 'destructive',
+      });
+      throw error;
     }
   }
 
-  /**
-   * Gets the current access token from storage
-   * @returns The access token or null if not found
-   */
-  getToken(): string | null {
+  // Verify email with code
+  async verifyEmailCode(params: { email: string; code: string }): Promise<AuthResponse> {
     try {
-      if (typeof window === 'undefined') {
-        return null;
+      const response = await fetch(`${this.baseUrl}/api/auth/verify-code`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(params),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Email verification failed');
       }
-      
-      return localStorage.getItem(ACCESS_TOKEN_KEY) || 
-             sessionStorage.getItem(ACCESS_TOKEN_KEY) || 
-             null;
-    } catch (error) {
-      console.error('Error getting token:', error);
-      return null;
+
+      return data;
+    } catch (error: any) {
+      console.error('Email verification error:', error);
+      toast({
+        title: 'Verification Error',
+        description: error.message || 'Failed to verify email code. Please try again.',
+        variant: 'destructive',
+      });
+      throw error;
     }
   }
 }
 
-export const authService = new AuthService(); 
+export const authService = new AuthService();
+
+export default authService; 

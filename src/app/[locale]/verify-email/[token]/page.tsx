@@ -94,7 +94,7 @@ export default function VerifyEmailTokenPage({ params }: VerifyEmailTokenPagePro
       </div>
     );
   }
-  
+
   return (
     <div className="flex flex-col items-center justify-center min-h-[70vh]">
       <div className="bg-destructive/10 p-4 rounded-full mb-4">

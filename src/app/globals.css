@@ -125,3 +125,17 @@
     font-family: var(--font-lalezar), system-ui, sans-serif;
   }
 }
+
+/* Add the animation for 2FA warning */
+@keyframes pulse-once {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+.animate-pulse-once {
+  animation: pulse-once 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}

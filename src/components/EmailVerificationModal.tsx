@@ -205,19 +205,40 @@ export const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
     setIsLoading(true);
     
     try {
-      await authService.verifyEmailCode({
+      const response = await authService.verifyEmailCode({
         email,
         code
       });
       
-      toast({
-        title: t('auth.verifyEmailTitle'),
-        description: t('auth.emailVerified'),
-        variant: "default"
-      });
-      
-      // Call onSuccess to handle successful verification
-      onSuccess();
+      // Check for success response with tokens
+      if (response.code === 'EMAIL_VERIFICATION_SUCCESS' && response.accessToken && response.refreshToken) {
+        // Extract user data from response
+        const user = {
+          id: response.userId,
+          username: response.username || '',
+          fullName: response.fullName || '',
+          email: email,
+          isVerified: true
+        };
+        
+        // Store user data in localStorage for immediate access
+        localStorage.setItem('user', JSON.stringify(user));
+        
+        // Store authentication tokens
+        authService.storeTokens(response.accessToken, response.refreshToken);
+        
+        toast({
+          title: t('auth.verifyEmailTitle'),
+          description: t('auth.emailVerified'),
+          variant: "default"
+        });
+        
+        // Call onSuccess to handle successful verification (parent will handle redirect)
+        onSuccess();
+      } else {
+        // Handle unexpected response format
+        throw new Error('Invalid response from server');
+      }
     } catch (error: any) {
       console.error('Verification error:', error);
       

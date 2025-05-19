@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { i18nConfig, Locale } from "@/lib/i18n/config";
-import { Menu, X, Globe, ChevronDown } from "lucide-react";
+import { Menu, X, Globe, ChevronDown, LogOut, User, Settings } from "lucide-react";
 import { FiUsers, FiMail, FiLogIn, FiUserPlus } from "react-icons/fi";
 import { Button } from "@/components/ui/button";
 import {
@@ -26,6 +26,8 @@ import {
 import { useTranslation } from "@/lib/i18n/TranslationProvider";
 import { authService } from '@/services/authService';
 import LoginModal from './LoginModal';
+import RegisterModal from './RegisterModal';
+import UserMenu from './UserMenu';
 
 type HeaderProps = {
     currentLanguage?: string;
@@ -41,6 +43,7 @@ export const Header: React.FC<HeaderProps> = ({ currentLanguage = "en" }) => {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [showLoginModal, setShowLoginModal] = useState(false);
     const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false);
+    const [showRegisterModal, setShowRegisterModal] = useState(false);
 
     // Use the locale from the context if available, otherwise use the prop
     const activeLocale = locale || currentLanguage as Locale;
@@ -80,8 +83,12 @@ export const Header: React.FC<HeaderProps> = ({ currentLanguage = "en" }) => {
         
         window.addEventListener('storage', handleStorageChange);
         
+        // Add a custom event listener for auth state changes
+        window.addEventListener('authStateChange', handleStorageChange);
+        
         return () => {
             window.removeEventListener('storage', handleStorageChange);
+            window.removeEventListener('authStateChange', handleStorageChange);
         };
     }, []);
 
@@ -117,9 +124,7 @@ export const Header: React.FC<HeaderProps> = ({ currentLanguage = "en" }) => {
     // Handle register button click
     const handleRegisterClick = (e: React.MouseEvent) => {
         e.preventDefault();
-        if (isMounted && window.openRegisterModal) {
-            window.openRegisterModal();
-        }
+        setShowRegisterModal(true);
     };
 
     // Check if language is RTL
@@ -130,11 +135,13 @@ export const Header: React.FC<HeaderProps> = ({ currentLanguage = "en" }) => {
         setIsMenuOpen(!isMenuOpen);
     };
 
+    // Handle login success
     const handleLoginSuccess = () => {
         setIsAuthenticated(true);
         setShowLoginModal(false);
     };
     
+    // Handle logout
     const handleLogout = () => {
         authService.logout();
         setIsAuthenticated(false);
@@ -178,22 +185,35 @@ export const Header: React.FC<HeaderProps> = ({ currentLanguage = "en" }) => {
                                         </Link>
                                     </NavigationMenuLink>
                                 </NavigationMenuItem>
+                                {isAuthenticated && (
+                                    <NavigationMenuItem>
+                                        <NavigationMenuLink asChild>
+                                            <Link href={`/${activeLocale}/dashboard`} className="nav-link">
+                                                {t('common.dashboard')}
+                                            </Link>
+                                        </NavigationMenuLink>
+                                    </NavigationMenuItem>
+                                )}
                             </NavigationMenuList>
                         </NavigationMenu>
 
                         {isAuthenticated ? (
-                            <Button onClick={handleLogout} variant="outline">
-                                {t('common.logout')}
-                            </Button>
+                            <UserMenu 
+                                user={{
+                                    id: 1, // Replace with actual user ID if available
+                                    fullName: "Logged In User", // Replace with actual user name
+                                    username: "user", // Replace with actual username
+                                    email: "user@example.com" // Replace with actual email
+                                }}
+                                onLogout={handleLogout}
+                            />
                         ) : (
                             <>
                                 <Button variant="outline" onClick={() => setShowLoginModal(true)}>
                                     {t('common.login')}
                                 </Button>
-                                <Button asChild>
-                                    <Link href="/register">
-                                        {t('common.register')}
-                                    </Link>
+                                <Button onClick={handleRegisterClick}>
+                                    {t('common.register')}
                                 </Button>
                             </>
                         )}
@@ -279,30 +299,74 @@ export const Header: React.FC<HeaderProps> = ({ currentLanguage = "en" }) => {
                         <FiMail className="mr-2 h-5 w-5" />
                         {t('common.contactUs')}
                     </Link>
-                    <a
-                        href="#"
-                        className="flex items-center text-foreground hover:text-primary py-2 transition-colors"
-                        onClick={(e) => {
-                            e.preventDefault();
-                            setIsMenuOpen(false);
-                            handleLoginClick(e);
-                        }}
-                    >
-                        <FiLogIn className="mr-2 h-5 w-5" />
-                        {t('common.login')}
-                    </a>
-                    <a
-                        href="#"
-                        className="flex items-center text-foreground hover:text-primary py-2 transition-colors"
-                        onClick={(e) => {
-                            e.preventDefault();
-                            setIsMenuOpen(false);
-                            handleRegisterClick(e);
-                        }}
-                    >
-                        <FiUserPlus className="mr-2 h-5 w-5" />
-                        {t('common.register')}
-                    </a>
+                    
+                    {isAuthenticated ? (
+                        <>
+                            <Link
+                                href={`/${activeLocale}/dashboard`}
+                                className="flex items-center text-foreground hover:text-primary py-2 transition-colors"
+                                onClick={() => setIsMenuOpen(false)}
+                            >
+                                <FiUsers className="mr-2 h-5 w-5" />
+                                {t('common.dashboard')}
+                            </Link>
+                            <Link
+                                href={`/${activeLocale}/profile`}
+                                className="flex items-center text-foreground hover:text-primary py-2 transition-colors"
+                                onClick={() => setIsMenuOpen(false)}
+                            >
+                                <User className="mr-2 h-5 w-5" />
+                                {t('common.profile') || 'Profile'}
+                            </Link>
+                            <Link
+                                href={`/${activeLocale}/settings`}
+                                className="flex items-center text-foreground hover:text-primary py-2 transition-colors"
+                                onClick={() => setIsMenuOpen(false)}
+                            >
+                                <Settings className="mr-2 h-5 w-5" />
+                                {t('common.settings') || 'Settings'}
+                            </Link>
+                            <a
+                                href="#"
+                                className="flex items-center text-foreground hover:text-primary py-2 transition-colors"
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    setIsMenuOpen(false);
+                                    handleLogout();
+                                }}
+                            >
+                                <LogOut className="mr-2 h-5 w-5" />
+                                {t('common.logout')}
+                            </a>
+                        </>
+                    ) : (
+                        <>
+                            <a
+                                href="#"
+                                className="flex items-center text-foreground hover:text-primary py-2 transition-colors"
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    setIsMenuOpen(false);
+                                    setShowLoginModal(true);
+                                }}
+                            >
+                                <FiLogIn className="mr-2 h-5 w-5" />
+                                {t('common.login')}
+                            </a>
+                            <a
+                                href="#"
+                                className="flex items-center text-foreground hover:text-primary py-2 transition-colors"
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    setIsMenuOpen(false);
+                                    setShowRegisterModal(true);
+                                }}
+                            >
+                                <FiUserPlus className="mr-2 h-5 w-5" />
+                                {t('common.register')}
+                            </a>
+                        </>
+                    )}
                 </div>
             </div>
 
@@ -314,6 +378,16 @@ export const Header: React.FC<HeaderProps> = ({ currentLanguage = "en" }) => {
                 onForgotPassword={() => {
                     setShowLoginModal(false);
                     setShowForgotPasswordModal(true);
+                }}
+            />
+            
+            {/* Register Modal */}
+            <RegisterModal
+                isOpen={showRegisterModal}
+                onClose={() => setShowRegisterModal(false)}
+                onSuccess={() => {
+                    setShowRegisterModal(false);
+                    setShowLoginModal(true);
                 }}
             />
 

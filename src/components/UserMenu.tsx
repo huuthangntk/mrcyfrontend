@@ -14,6 +14,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { LogOut, User, Settings, ChevronDown } from "lucide-react";
 import Link from "next/link";
+import { useTranslation } from "@/lib/i18n/TranslationProvider";
 
 interface UserProfile {
   id: number;
@@ -30,6 +31,7 @@ interface UserMenuProps {
 
 export const UserMenu: React.FC<UserMenuProps> = ({ user, onLogout }) => {
   const [isActive, setIsActive] = useState(true);
+  const { locale } = useTranslation();
 
   // Get initials from full name
   const getInitials = (name: string) => {
@@ -66,13 +68,13 @@ export const UserMenu: React.FC<UserMenuProps> = ({ user, onLogout }) => {
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
-          <Link href="/profile">
+          <Link href={`/${locale}/profile`}>
             <DropdownMenuItem>
               <User className="mr-2 h-4 w-4" />
               <span>Profile</span>
             </DropdownMenuItem>
           </Link>
-          <Link href="/settings">
+          <Link href={`/${locale}/settings`}>
             <DropdownMenuItem>
               <Settings className="mr-2 h-4 w-4" />
               <span>Settings</span>
